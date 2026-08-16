@@ -48,3 +48,4 @@ func main() {
 		fmt.Printf("%s : %d\n", nama, nilai)
 	}
 }
+
