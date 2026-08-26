@@ -12,6 +12,31 @@ import (
 var students []Student
 var nextID = 1
 
+func seedData() {
+	awal := []struct {
+		nama  string
+		nim   string
+		grade float64
+	}{
+		{"Amba", "230101", 90},
+		{"Rusdi", "230102", 85},
+		{"Mas Fuad", "230103", 88},
+		{"Azril", "230104", 92},
+		{"Mas Gatot", "230105", 78},
+	}
+	for _, s := range awal {
+		students = append(students, Student{
+			ID:        nextID,
+			Name:      s.nama,
+			NIM:       s.nim,
+			Grade:     s.grade,
+			IsActive:  true,
+			CreatedAt: time.Now(),
+		})
+		nextID++
+	}
+}
+
 func findStudentIndex(id int) int {
 	for i := range students {
 		if students[i].ID == id {

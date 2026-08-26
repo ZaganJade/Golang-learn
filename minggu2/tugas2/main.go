@@ -42,6 +42,8 @@ func main() {
 		},
 	})
 
+	seedData()
+
 	app.Use(requestid.New())
 	app.Use(logger.New(logger.Config{
 		Format: "[${time}] ${requestid} ${method} ${path} ${status} ${latency}\n",
