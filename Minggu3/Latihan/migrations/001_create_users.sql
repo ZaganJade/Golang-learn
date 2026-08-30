@@ -14,3 +14,11 @@ CREATE UNIQUE INDEX IF NOT EXISTS users_username_lower_key
 
 CREATE INDEX IF NOT EXISTS users_email_lower_idx
     ON users (LOWER(email));
+
+INSERT INTO users (username, email, password) VALUES
+    ('bu tejo', 'butejo@example.com', 'rahasia123'),
+    ('bang toyib', 'bangtoyib@example.com', 'rahasia123'),
+    ('mbak mumun', 'mbakmumun@example.com', 'rahasia123'),
+    ('mas gugum', 'masgugum@example.com', 'rahasia123'),
+    ('pak kumis', 'pakkumis@example.com', 'rahasia123')
+ON CONFLICT DO NOTHING;
