@@ -26,7 +26,7 @@ Alasan pemilihan tipe dan indeks:
 
 ## Menyiapkan basis data dari nol
 
-Anggap pembaca rekan sekelas yang baru mengklona repositori ini:
+Anggap pembacanya rekan sekelas yang baru mengklona repositori ini:
 
 ```bash
 # 1. Buat database (contoh pakai psql)
