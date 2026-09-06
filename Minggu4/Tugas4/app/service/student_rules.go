@@ -1,0 +1,85 @@
+package service
+
+import (
+	"strings"
+
+	"backend-golang/Minggu4/Tugas4/app/model"
+)
+
+func ValidateCreate(req model.CreateStudentRequest) map[string]string {
+	errs := map[string]string{}
+	req.Name = strings.TrimSpace(req.Name)
+	req.NIM = strings.TrimSpace(req.NIM)
+	if req.Name == "" {
+		errs["name"] = "wajib diisi"
+	}
+	if req.NIM == "" {
+		errs["nim"] = "wajib diisi"
+	}
+	if !IsValidGrade(req.Grade) {
+		errs["grade"] = "harus di antara 0 sampai 100"
+	}
+	return errs
+}
+
+func ValidateReplace(req model.ReplaceStudentRequest) map[string]string {
+	errs := map[string]string{}
+	req.Name = strings.TrimSpace(req.Name)
+	req.NIM = strings.TrimSpace(req.NIM)
+	if req.Name == "" {
+		errs["name"] = "wajib diisi pada PUT"
+	}
+	if req.NIM == "" {
+		errs["nim"] = "wajib diisi pada PUT"
+	}
+	if !IsValidGrade(req.Grade) {
+		errs["grade"] = "harus di antara 0 sampai 100"
+	}
+	return errs
+}
+
+func ApplyPatch(
+	current model.Student, req model.PatchStudentRequest,
+) (model.Student, map[string]string) {
+	errs := map[string]string{}
+	if req.Name != nil {
+		if strings.TrimSpace(*req.Name) == "" {
+			errs["name"] = "tidak boleh kosong"
+		} else {
+			current.Name = *req.Name
+		}
+	}
+	if req.NIM != nil {
+		if strings.TrimSpace(*req.NIM) == "" {
+			errs["nim"] = "tidak boleh kosong"
+		} else {
+			current.NIM = *req.NIM
+		}
+	}
+	if req.Grade != nil {
+		if !IsValidGrade(*req.Grade) {
+			errs["grade"] = "harus di antara 0 sampai 100"
+		} else {
+			current.Grade = *req.Grade
+		}
+	}
+	if req.IsActive != nil {
+		current.IsActive = *req.IsActive
+	}
+	return current, errs
+}
+
+func IsEmptyPatch(req model.PatchStudentRequest) bool {
+	return req.Name == nil && req.NIM == nil && req.Grade == nil && req.IsActive == nil
+}
+
+func IsValidGrade(g float64) bool {
+	return g >= 0 && g <= 100
+}
+
+func CountTotalPages(total, limit int) int {
+	if limit <= 0 {
+		return 0
+	}
+	return (total + limit - 1) / limit
+}
