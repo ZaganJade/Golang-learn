@@ -17,6 +17,15 @@ type CreateStudentRequest struct {
 	Grade float64 `json:"grade"`
 }
 
+type StudentNilai struct {
+	ID_Nilai        int       `json:"id"`
+	NameMK      string    `json:"name"`
+	ID_Student      int       `json:"id_student"`
+	Grade           float64   `json:"grade"`
+	IsActive        bool      `json:"is_active"`
+	CreatedAt       time.Time `json:"created_at"`
+}
+
 type ReplaceStudentRequest struct {
 	Name     string  `json:"name"`
 	NIM      string  `json:"nim"`

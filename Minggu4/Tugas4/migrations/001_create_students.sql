@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS students (
     created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
+
 CREATE UNIQUE INDEX IF NOT EXISTS students_nim_key ON students (nim);
 
 CREATE INDEX IF NOT EXISTS students_grade_idx ON students (grade);

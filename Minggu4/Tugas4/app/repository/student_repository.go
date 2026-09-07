@@ -20,6 +20,7 @@ var (
 type StudentRepository interface {
 	FindAll(ctx context.Context, q model.ListQuery) ([]model.Student, int, error)
 	FindByID(ctx context.Context, id int) (model.Student, error)
+	FindNilaiByNIM(ctx context.Context, nim string) ([]model.StudentNilai, error)
 	Create(ctx context.Context, s model.Student) (model.Student, error)
 	Update(ctx context.Context, s model.Student) (model.Student, error)
 	Delete(ctx context.Context, id int) error
@@ -110,6 +111,43 @@ func (r *studentPostgresRepository) FindAll(
 	}
 
 	return hasil, total, nil
+}
+
+func (r *studentPostgresRepository) FindNilaiByNIM(
+	ctx context.Context, nim string,
+) ([]model.StudentNilai, error) {
+	var idStudent int
+	err := r.pool.QueryRow(ctx,
+		`SELECT id FROM students WHERE nim = $1`, nim).Scan(&idStudent)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("mencari mahasiswa dengan nim %s: %w", nim, err)
+	}
+
+	rows, err := r.pool.Query(ctx,
+		`SELECT id_nilai, nameMK, id_student, grade, is_active, created_at
+		   FROM Nilai WHERE id_student = $1`, idStudent)
+	if err != nil {
+		return nil, fmt.Errorf("mengambil daftar nilai: %w", err)
+	}
+	defer rows.Close()
+
+	hasil := []model.StudentNilai{}
+	for rows.Next() {
+		var s model.StudentNilai
+		if err := rows.Scan(&s.ID_Nilai, &s.NameMK, &s.ID_Student,
+			&s.Grade, &s.IsActive, &s.CreatedAt); err != nil {
+			return nil, fmt.Errorf("membaca baris nilai: %w", err)
+		}
+		hasil = append(hasil, s)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("membaca hasil query: %w", err)
+	}
+
+	return hasil, nil
 }
 
 func (r *studentPostgresRepository) FindByID(

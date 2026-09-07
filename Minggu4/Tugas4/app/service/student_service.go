@@ -54,6 +54,23 @@ func (s *StudentService) Get(c fiber.Ctx) error {
 	return helper.Success(c, fiber.StatusOK, "mahasiswa ditemukan", student)
 }
 
+func (s *StudentService) GetNilai(c fiber.Ctx) error {
+	ctx, cancel := helper.RequestContext(c)
+	defer cancel()
+
+	nim := strings.TrimSpace(c.Params("nim"))
+	if nim == "" {
+		return helper.Fail(c, fiber.StatusBadRequest, "nim tidak boleh kosong")
+	}
+
+	studentNilai, err := s.repo.FindNilaiByNIM(ctx, nim)
+	if err != nil {
+		return translateError(c, err, "gagal mengambil data nilai mahasiswa")
+	}
+	return helper.Success(c, fiber.StatusOK, "nilai mahasiswa ditemukan", studentNilai)
+	
+}
+
 func (s *StudentService) Create(c fiber.Ctx) error {
 	ctx, cancel := helper.RequestContext(c)
 	defer cancel()
@@ -177,4 +194,5 @@ func translateError(c fiber.Ctx, err error, generalMessage string) error {
 	default:
 		return helper.Fail(c, fiber.StatusInternalServerError, generalMessage)
 	}
+
 }
