@@ -1,0 +1,89 @@
+package middleware
+
+import (
+	"log/slog"
+	"strings"
+	"time"
+
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/cors"
+	"github.com/gofiber/fiber/v3/middleware/helmet"
+	"github.com/gofiber/fiber/v3/middleware/recover"
+	"github.com/gofiber/fiber/v3/middleware/requestid"
+
+	"backend-golang/Minggu6/Latihan/helper"
+)
+
+// Register memasang seluruh middleware yang berlaku untuk semua route.
+// URUTAN PENTING: middleware dieksekusi sesuai urutan pemasangan.
+func Register(app *fiber.App, logger *slog.Logger, allowedOrigins string) {
+	app.Use(requestid.New())            // 1. beri setiap request satu ID unik
+	app.Use(recover.New())              // 2. tangkap panic agar server tidak mati
+	app.Use(helmet.New())               // 3. pasang header keamanan dasar
+	app.Use(corsPolicy(allowedOrigins)) // 4. CORS ketat, API kini memakai token
+	app.Use(RequestLogger(logger))      // 5. catat setiap request
+}
+
+// corsPolicy membatasi origin yang boleh memanggil API.
+// cors.New() tanpa konfigurasi mengizinkan SEMUA origin --- cukup untuk
+// latihan pertemuan 2, tetapi tidak untuk API yang memakai token.
+func corsPolicy(allowedOrigins string) fiber.Handler {
+	if strings.TrimSpace(allowedOrigins) == "" {
+		allowedOrigins = "http://localhost:5173"
+	}
+	return cors.New(cors.Config{
+		AllowOrigins: strings.Split(allowedOrigins, ","),
+		AllowMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowHeaders: []string{"Origin", "Content-Type", "Accept", "Authorization"},
+	})
+}
+
+// RequestLogger mencatat setiap request ke log terstruktur.
+// Perhatikan polanya: fungsi yang MENGEMBALIKAN fungsi (closure) ---
+// inilah cara middleware menerima dependensi dari luar.
+func RequestLogger(logger *slog.Logger) fiber.Handler {
+	return func(c fiber.Ctx) error {
+		start := time.Now()
+		err := c.Next() // serahkan ke middleware/handler berikutnya
+
+		attrs := []any{
+			slog.String("request_id", requestid.FromContext(c)),
+			slog.String("method", c.Method()),
+			slog.String("path", c.Path()),
+			slog.Int("status", c.Response().StatusCode()),
+			slog.Duration("duration", time.Since(start)),
+			slog.String("ip", c.IP()),
+		}
+
+		// Identitas ikut dicatat bila request sudah melewati RequireAuth.
+		// Tanpa ini, log sebuah 403 tidak berguna: kita tahu ada yang ditolak,
+		// tetapi tidak tahu siapa dan mengapa.
+		if user, ok := helper.CurrentUser(c); ok {
+			attrs = append(attrs,
+				slog.Int("user_id", user.UserID),
+				slog.String("role", user.Role))
+		}
+
+		logger.Info("http_request", attrs...)
+		return err
+	}
+}
+
+var methodsWithBody = map[string]bool{
+	fiber.MethodPost:  true,
+	fiber.MethodPut:   true,
+	fiber.MethodPatch: true,
+}
+
+// RequireJSON menolak request berisi body yang Content-Type-nya bukan JSON.
+// Dipasang per grup route, bukan global.
+func RequireJSON(c fiber.Ctx) error {
+	if methodsWithBody[c.Method()] {
+		ct := c.Get("Content-Type")
+		if !strings.HasPrefix(ct, fiber.MIMEApplicationJSON) {
+			return helper.Fail(c, fiber.StatusUnsupportedMediaType,
+				"Content-Type harus application/json")
+		}
+	}
+	return c.Next()
+}
