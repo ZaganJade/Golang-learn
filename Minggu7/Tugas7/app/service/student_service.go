@@ -25,6 +25,12 @@ func NewStudentService(
 }
 
 func (s *StudentService) List(c fiber.Ctx) error {
+
+	format, err := helper.Negotiate(c, helper.FormatJSON, helper.FormatCSV)
+	if err != nil {
+		return err
+	}
+
 	ctx, cancel := helper.RequestContext(c)
 	defer cancel()
 
@@ -47,6 +53,10 @@ func (s *StudentService) List(c fiber.Ctx) error {
 	if hasMore && len(rows) > 0 {
 		last := rows[len(rows)-1]
 		meta.NextCursor = helper.EncodeCursor(last.CreatedAt, last.ID)
+	}
+
+	if format == helper.FormatCSV {
+		return helper.WriteStudentsCSV(c, rows)
 	}
 
 	return helper.SuccessCursor(c, "daftar mahasiswa berhasil diambil", rows, meta)
