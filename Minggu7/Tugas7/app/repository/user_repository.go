@@ -14,7 +14,7 @@ import (
 type UserRepository interface {
 	FindByID(ctx context.Context, id int) (model.User, error)
 	FindByUsername(ctx context.Context, username string) (model.User, error)
-	FindAll(ctx context.Context, q model.ListQuery) ([]model.User, int, error)
+	FindAfterCursor(ctx context.Context, q model.CursorQuery) ([]model.User, error)
 	Create(ctx context.Context, u model.User) (model.User, error)
 	Update(ctx context.Context, u model.User) (model.User, error)
 	Delete(ctx context.Context, id int) error
@@ -23,10 +23,6 @@ type UserRepository interface {
 
 type userPostgresRepository struct {
 	pool *pgxpool.Pool
-}
-
-var kolomUserUrut = map[string]string{
-	"id":	"id", "username": "username", "email": "email", "created_at": "created_at",
 }
 
 func NewUserRepository(pool *pgxpool.Pool) UserRepository {
@@ -74,62 +70,58 @@ func (r *userPostgresRepository) FindByUsername(
 	return u, nil
 }
 
-func (r *userPostgresRepository) FindAll(
-	ctx context.Context, q model.ListQuery,
-) ([]model.User, int, error) {
-	where := " WHERE 1 = 1"
+const userColumns = "id, username, email, password, role, is_active, created_at"
+
+func scanUser(rows pgx.Rows) (model.User, error) {
+	var u model.User
+	err := rows.Scan(&u.ID, &u.Username, &u.Email, &u.Password, &u.Role,
+		&u.IsActive, &u.CreatedAt)
+	return u, err
+}
+
+func (r *userPostgresRepository) FindAfterCursor(
+	ctx context.Context, q model.CursorQuery,
+) ([]model.User, error) {
 	args := []any{}
+	where := " WHERE 1 = 1"
 
 	if q.Search != "" {
-		where += fmt.Sprintf(" AND (username ILIKE $%d OR email ILIKE $%d)",
-			len(args)+1, len(args)+1)
 		args = append(args, "%"+q.Search+"%")
+		where += fmt.Sprintf(" AND username ILIKE $%d", len(args))
 	}
 	if q.IsActive != nil {
-		where += fmt.Sprintf(" AND is_active = $%d", len(args)+1)
 		args = append(args, *q.IsActive)
+		where += fmt.Sprintf(" AND is_active = $%d", len(args))
+	}
+	if q.After != nil {
+		args = append(args, q.After.CreatedAt, q.After.ID)
+		where += fmt.Sprintf(" AND (created_at, id) < ($%d, $%d)",
+			len(args)-1, len(args))
 	}
 
-	var total int
-	err := r.pool.QueryRow(ctx, "SELECT COUNT(*) FROM users"+where, args...).Scan(&total)
+	args = append(args, q.Limit+1)
+	query := fmt.Sprintf(
+		"SELECT %s FROM users%s ORDER BY created_at DESC, id DESC LIMIT $%d",
+		userColumns, where, len(args))
+
+	rows, err := r.pool.Query(ctx, query, args...)
 	if err != nil {
-		return nil, 0, fmt.Errorf("menghitung user: %w", err)
-	}
-
-	arah := "ASC"
-	if q.Order == "desc" {
-		arah = "DESC"
-	}
-
-	sqlText := fmt.Sprintf(
-		`SELECT id, username, email, password, role, is_active, created_at
-		   FROM users%s
-		  ORDER BY %s %s
-		  LIMIT $%d OFFSET $%d`,
-		where, kolomUserUrut[q.Sort], arah, len(args)+1, len(args)+2,
-	)
-	args = append(args, q.Limit, q.Offset())
-
-	rows, err := r.pool.Query(ctx, sqlText, args...)
-	if err != nil {
-		return nil, 0, fmt.Errorf("mengambil daftar user: %w", err)
+		return nil, fmt.Errorf("mengambil daftar user: %w", err)
 	}
 	defer rows.Close()
 
-	hasil := []model.User{}
+	result := []model.User{}
 	for rows.Next() {
-		var u model.User
-		if err := rows.Scan(&u.ID, &u.Username, &u.Email, &u.Password,
-			&u.Role, &u.IsActive, &u.CreatedAt); err != nil {
-			return nil, 0, fmt.Errorf("membaca baris user: %w", err)
+		u, err := scanUser(rows)
+		if err != nil {
+			return nil, fmt.Errorf("membaca row user: %w", err)
 		}
-		hasil = append(hasil, u)
+		result = append(result, u)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, 0, fmt.Errorf("membaca hasil query: %w", err)
+		return nil, fmt.Errorf("membaca hasil query: %w", err)
 	}
-
-	return hasil, total, nil
+	return result, nil
 }
 
 func (r *userPostgresRepository) Create(

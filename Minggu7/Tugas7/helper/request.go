@@ -50,6 +50,41 @@ var allowedSort = map[string]bool{
 	"id":	true, "name": true, "nim": true, "grade": true, "created_at": true,
 }
 
+const cursorLimitMax = 100
+
+func ParseCursorQuery(c fiber.Ctx) (model.CursorQuery, error) {
+	q := model.CursorQuery{
+		Search: strings.TrimSpace(c.Query("search")),
+	}
+
+	q.Limit = queryInt(c, "limit", 10)
+	if q.Limit < 1 {
+		q.Limit = 10
+	}
+
+	if q.Limit > cursorLimitMax {
+		q.Limit = cursorLimitMax
+	}
+
+	if raw := c.Query("is_active"); raw != "" {
+		v, err := strconv.ParseBool(raw)
+		if err != nil {
+			return model.CursorQuery{}, BadRequest("is_active harus bernilai true atau false")
+		}
+		q.IsActive = &v
+	}
+
+	if raw := strings.TrimSpace(c.Query("cursor")); raw != "" {
+		after, err := DecodeCursor(raw)
+		if err != nil {
+			return model.CursorQuery{}, BadRequest("cursor tidak valid")
+		}
+		q.After = &after
+	}
+
+	return q, nil
+}
+
 func ParseListQuery(c fiber.Ctx) model.ListQuery {
 	q := model.ListQuery{
 		Page:		queryInt(c, "page", 1),
