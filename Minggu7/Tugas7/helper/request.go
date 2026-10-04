@@ -7,9 +7,14 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/requestid"
 
 	"backend-golang/Minggu7/Tugas7/app/model"
 )
+
+func RequestID(c fiber.Ctx) string {
+	return requestid.FromContext(c)
+}
 
 func RequestContext(c fiber.Ctx) (context.Context, context.CancelFunc) {
 	return context.WithTimeout(c.Context(), 5*time.Second)
