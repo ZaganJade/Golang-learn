@@ -39,6 +39,19 @@ func newValidator() *validator.Validate {
 		return passwordStrength(fl.Field().String()) == ""
 	})
 
+	_ = v.RegisterValidation("nim", func(fl validator.FieldLevel) bool {
+		nim := fl.Field().String()
+		if len(nim) != 6 {
+			return false
+		}
+		for _, r := range nim {
+			if !unicode.IsDigit(r) {
+				return false
+			}
+		}
+		return true
+	})
+
 	return v
 }
 
@@ -85,6 +98,12 @@ func messageFor(fe validator.FieldError) string {
 		return "nilai maksimal " + fe.Param()
 	case "alphanum":
 		return "hanya boleh berisi huruf dan angka"
+	case "gte":
+		return "nilai minimal " + fe.Param()
+	case "lte":
+		return "nilai maksimal " + fe.Param()
+	case "nim":
+		return "harus 6 digit angka"
 	case "nospace":
 		return "tidak boleh mengandung spasi"
 	case "username":
