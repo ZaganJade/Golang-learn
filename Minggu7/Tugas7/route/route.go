@@ -49,6 +49,7 @@ func Register(app *fiber.App, deps Dependencies) {
 		deps.StudentService.Delete)
 
 	students.Get("/:id", deps.StudentService.Get)
+	students.Get("/:nim/nilai", deps.StudentService.GetNilai)
 	students.Put("/:id", deps.StudentService.Replace)
 	students.Patch("/:id", deps.StudentService.Patch)
 
