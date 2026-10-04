@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"backend-golang/Minggu7/Tugas7/app/model"
+	"backend-golang/Minggu7/Tugas7/helper"
 )
 
 func ValidateCreate(req model.CreateStudentRequest) map[string]string {
@@ -82,4 +83,16 @@ func CountTotalPages(total, limit int) int {
 		return 0
 	}
 	return (total + limit - 1) / limit
+}
+
+func CanAccessStudent(
+	current model.AuthUser,
+	ownerID int,
+	perms *helper.PermissionSet,
+	anyPermission string,
+) bool {
+	if ownerID != 0 && current.UserID == ownerID {
+		return true
+	}
+	return perms.Can(current.Role, anyPermission)
 }

@@ -74,7 +74,7 @@ func (s *UserService) Create(c fiber.Ctx) error {
 	req.Username = strings.TrimSpace(req.Username)
 	req.Email = strings.TrimSpace(req.Email)
 
-	if errs := ValidateCreateUser(req); len(errs) > 0 {
+	if errs := helper.ValidateStruct(req); errs != nil {
 		return helper.Validation(errs)
 	}
 
@@ -122,7 +122,7 @@ func (s *UserService) Replace(c fiber.Ctx) error {
 	req.Username = strings.TrimSpace(req.Username)
 	req.Email = strings.TrimSpace(req.Email)
 
-	if errs := ValidateReplaceUser(req); len(errs) > 0 {
+	if errs := helper.ValidateStruct(req); errs != nil {
 		return helper.Validation(errs)
 	}
 
@@ -161,6 +161,10 @@ func (s *UserService) Patch(c fiber.Ctx) error {
 		return helper.BadRequest("body harus berupa JSON yang valid")
 	}
 
+	if errs := helper.ValidateStruct(req); errs != nil {
+		return helper.Validation(errs)
+	}
+
 	if IsEmptyUserPatch(req) {
 		return helper.BadRequest("tidak ada field yang diubah")
 	}
@@ -170,12 +174,7 @@ func (s *UserService) Patch(c fiber.Ctx) error {
 		return translateUserError(err)
 	}
 
-	updated, errs := ApplyUserPatch(existing, req)
-	if len(errs) > 0 {
-		return helper.Validation(errs)
-	}
-
-	result, err := s.repo.Update(ctx, updated)
+	result, err := s.repo.Update(ctx, ApplyUserPatch(existing, req))
 	if err != nil {
 		return translateUserError(err)
 	}

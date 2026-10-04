@@ -45,10 +45,8 @@ func (s *AuthService) Register(c fiber.Ctx) error {
 	if err := c.Bind().Body(&req); err != nil {
 		return helper.BadRequest("body harus berupa JSON yang valid")
 	}
-	req.Username = strings.TrimSpace(req.Username)
-	req.Email = strings.TrimSpace(req.Email)
 
-	if errs := ValidateRegister(req); len(errs) > 0 {
+	if errs := helper.ValidateStruct(req); errs != nil {
 		return helper.Validation(errs)
 	}
 
@@ -83,7 +81,7 @@ func (s *AuthService) Login(c fiber.Ctx) error {
 	if err := c.Bind().Body(&req); err != nil {
 		return helper.BadRequest("body harus berupa JSON yang valid")
 	}
-	if errs := ValidateLogin(req); len(errs) > 0 {
+	if errs := helper.ValidateStruct(req); errs != nil {
 		return helper.Validation(errs)
 	}
 
@@ -115,8 +113,8 @@ func (s *AuthService) Refresh(c fiber.Ctx) error {
 	if err := c.Bind().Body(&req); err != nil {
 		return helper.BadRequest("body harus berupa JSON yang valid")
 	}
-	if strings.TrimSpace(req.RefreshToken) == "" {
-		return helper.BadRequest("refresh_token wajib diisi")
+	if errs := helper.ValidateStruct(req); errs != nil {
+		return helper.Validation(errs)
 	}
 
 	hash := helper.SHA256Hex(req.RefreshToken)
