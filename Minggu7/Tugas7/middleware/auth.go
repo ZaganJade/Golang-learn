@@ -16,17 +16,16 @@ func RequireAuth(jwtManager *helper.JWTManager) fiber.Handler {
 		token, err := bearerToken(c)
 		if err != nil {
 			c.Set("WWW-Authenticate", `Bearer realm="api"`)
-			return helper.Fail(c, fiber.StatusUnauthorized,
-				"header Authorization tidak ada atau salah bentuk")
+			return helper.Unauthorized("header Authorization tidak ada atau salah bentuk")
 		}
 
 		authUser, err := jwtManager.Parse(token)
 		if err != nil {
 			c.Set("WWW-Authenticate", `Bearer realm="api"`)
 			if errors.Is(err, helper.ErrExpiredToken) {
-				return helper.Fail(c, fiber.StatusUnauthorized, "access token kedaluwarsa")
+				return helper.Unauthorized("access token kedaluwarsa")
 			}
-			return helper.Fail(c, fiber.StatusUnauthorized, "access token tidak valid")
+			return helper.Unauthorized("access token tidak valid")
 		}
 
 		c.Locals(helper.LocalsAuthUser, authUser)
@@ -61,8 +60,7 @@ func LoginRateLimiter() fiber.Handler {
 		},
 		LimitReached: func(c fiber.Ctx) error {
 			c.Set("Retry-After", "60")
-			return helper.Fail(c, fiber.StatusTooManyRequests,
-				"terlalu banyak percobaan login, coba lagi dalam satu menit")
+			return helper.TooManyRequests("terlalu banyak percobaan login, coba lagi dalam satu menit")
 		},
 	})
 }
@@ -71,11 +69,11 @@ func RequirePermission(perms *helper.PermissionSet, permission string) fiber.Han
 	return func(c fiber.Ctx) error {
 		user, ok := helper.CurrentUser(c)
 		if !ok {
-			return helper.Fail(c, fiber.StatusUnauthorized, "belum terautentikasi")
+			return helper.Unauthorized("belum terautentikasi")
 		}
 		if !perms.Can(user.Role, permission) {
-			return helper.Fail(c, fiber.StatusForbidden,
-				"role "+user.Role+" tidak memiliki hak "+permission)
+			return helper.Forbidden(
+				"role " + user.Role + " tidak memiliki hak " + permission)
 		}
 		return c.Next()
 	}
@@ -89,11 +87,10 @@ func RequireRole(roles ...string) fiber.Handler {
 	return func(c fiber.Ctx) error {
 		user, ok := helper.CurrentUser(c)
 		if !ok {
-			return helper.Fail(c, fiber.StatusUnauthorized, "belum terautentikasi")
+			return helper.Unauthorized("belum terautentikasi")
 		}
 		if _, granted := allowed[user.Role]; !granted {
-			return helper.Fail(c, fiber.StatusForbidden,
-				"role Anda tidak berhak mengakses endpoint ini")
+			return helper.Forbidden("role Anda tidak berhak mengakses endpoint ini")
 		}
 		return c.Next()
 	}
