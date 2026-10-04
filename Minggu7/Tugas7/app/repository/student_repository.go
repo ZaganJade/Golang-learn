@@ -18,20 +18,12 @@ var (
 )
 
 type StudentRepository interface {
-	FindAll(ctx context.Context, q model.ListQuery) ([]model.Student, int, error)
+	FindAfterCursor(ctx context.Context, q model.CursorQuery) ([]model.Student, error)
 	FindByID(ctx context.Context, id int) (model.Student, error)
 	FindNilaiByNIM(ctx context.Context, nim string) ([]model.StudentNilai, error)
 	Create(ctx context.Context, s model.Student) (model.Student, error)
 	Update(ctx context.Context, s model.Student) (model.Student, error)
 	Delete(ctx context.Context, id int) error
-}
-
-var kolomUrut = map[string]string{
-	"id":		"id",
-	"name":		"name",
-	"nim":		"nim",
-	"grade":	"grade",
-	"created_at":	"created_at",
 }
 
 type studentPostgresRepository struct {
@@ -42,75 +34,58 @@ func NewStudentRepository(pool *pgxpool.Pool) StudentRepository {
 	return &studentPostgresRepository{pool: pool}
 }
 
-func buildFilter(q model.ListQuery) (string, []any) {
-	where := " WHERE 1 = 1"
-	args := []any{}
+const studentColumns = "id, nim, name, grade, is_active, owner_id, created_at"
 
-	if q.Search != "" {
-		where += fmt.Sprintf(" AND name ILIKE $%d", len(args)+1)
-		args = append(args, "%"+q.Search+"%")
-	}
-	if q.IsActive != nil {
-		where += fmt.Sprintf(" AND is_active = $%d", len(args)+1)
-		args = append(args, *q.IsActive)
-	}
-	if q.GradeMin != nil {
-		where += fmt.Sprintf(" AND grade >= $%d", len(args)+1)
-		args = append(args, *q.GradeMin)
-	}
-	if q.GradeMax != nil {
-		where += fmt.Sprintf(" AND grade <= $%d", len(args)+1)
-		args = append(args, *q.GradeMax)
-	}
-
-	return where, args
+func scanStudent(rows pgx.Rows) (model.Student, error) {
+	var s model.Student
+	err := rows.Scan(&s.ID, &s.NIM, &s.Name, &s.Grade,
+		&s.IsActive, &s.OwnerID, &s.CreatedAt)
+	return s, err
 }
 
-func (r *studentPostgresRepository) FindAll(
-	ctx context.Context, q model.ListQuery,
-) ([]model.Student, int, error) {
-	where, args := buildFilter(q)
+func (r *studentPostgresRepository) FindAfterCursor(
+	ctx context.Context, q model.CursorQuery,
+) ([]model.Student, error) {
+	args := []any{}
+	where := " WHERE 1 = 1"
 
-	var total int
-	err := r.pool.QueryRow(ctx, "SELECT COUNT(*) FROM students"+where, args...).Scan(&total)
-	if err != nil {
-		return nil, 0, fmt.Errorf("menghitung student: %w", err)
+	if q.Search != "" {
+		args = append(args, "%"+q.Search+"%")
+		where += fmt.Sprintf(" AND name ILIKE $%d", len(args))
+	}
+	if q.IsActive != nil {
+		args = append(args, *q.IsActive)
+		where += fmt.Sprintf(" AND is_active = $%d", len(args))
+	}
+	if q.After != nil {
+		args = append(args, q.After.CreatedAt, q.After.ID)
+		where += fmt.Sprintf(" AND (created_at, id) < ($%d, $%d)",
+			len(args)-1, len(args))
 	}
 
-	arah := "ASC"
-	if q.Order == "desc" {
-		arah = "DESC"
-	}
+	args = append(args, q.Limit+1)
+	query := fmt.Sprintf(
+		"SELECT %s FROM students%s ORDER BY created_at DESC, id DESC LIMIT $%d",
+		studentColumns, where, len(args))
 
-	sqlText := fmt.Sprintf(
-		`SELECT id, nim, name, grade, is_active, owner_id, created_at
-		   FROM students%s
-		  ORDER BY %s %s
-		  LIMIT $%d OFFSET $%d`,
-		where, kolomUrut[q.Sort], arah, len(args)+1, len(args)+2,
-	)
-	args = append(args, q.Limit, q.Offset())
-
-	rows, err := r.pool.Query(ctx, sqlText, args...)
+	rows, err := r.pool.Query(ctx, query, args...)
 	if err != nil {
-		return nil, 0, fmt.Errorf("mengambil daftar student: %w", err)
+		return nil, fmt.Errorf("mengambil daftar student: %w", err)
 	}
 	defer rows.Close()
 
 	hasil := []model.Student{}
 	for rows.Next() {
-		var s model.Student
-		if err := rows.Scan(&s.ID, &s.NIM, &s.Name, &s.Grade,
-			&s.IsActive, &s.OwnerID, &s.CreatedAt); err != nil {
-			return nil, 0, fmt.Errorf("membaca baris student: %w", err)
+		s, err := scanStudent(rows)
+		if err != nil {
+			return nil, fmt.Errorf("membaca baris student: %w", err)
 		}
 		hasil = append(hasil, s)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, 0, fmt.Errorf("membaca hasil query: %w", err)
+		return nil, fmt.Errorf("membaca hasil query: %w", err)
 	}
-
-	return hasil, total, nil
+	return hasil, nil
 }
 
 func (r *studentPostgresRepository) FindNilaiByNIM(
