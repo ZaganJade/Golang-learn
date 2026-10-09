@@ -245,6 +245,12 @@ Sukses: `204` tanpa body. Error: `403` enrollment milik mahasiswa lain, `404` ti
 
 ---
 
+## Pengujian dengan Postman
+
+Folder ini dilengkapi `UTS.postman_collection.json` dan `UTS.postman_environment.json` (di luar git). Import keduanya, pilih environment "UTS SIAKAD - Local", lalu jalankan request "Login admin" / "Login mahasiswa" lebih dulu — test script-nya otomatis menyimpan token ke variabel `admin_token` / `mhs_token` / `mhs7_token`. Koleksi mencakup seluruh 10 endpoint beserta kasus gagalnya (401/403/404/409/422/429).
+
+Catatan: login dibatasi 5 percobaan per menit per IP — bila mendapat 429 saat menguji, tunggu sebentar.
+
 ## Struktur Proyek
 
 ```
